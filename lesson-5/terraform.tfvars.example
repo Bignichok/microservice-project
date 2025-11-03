@@ -1,0 +1,28 @@
+# Example Terraform variables file
+# Copy this file as terraform.tfvars and change values as needed
+
+# AWS region for resource deployment
+aws_region = "us-west-2"
+
+# Unique S3 bucket name for Terraform state
+# IMPORTANT: Replace with your unique name!
+s3_bucket_name = "terraform-state-bucket-lesson5-YOUR-NAME"
+
+# Additional variables for customization (uncomment as needed)
+
+# Custom CIDR blocks for VPC
+# vpc_cidr_block = "10.0.0.0/16"
+# public_subnets = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+# private_subnets = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
+
+# Custom availability zones
+# availability_zones = ["us-west-2a", "us-west-2b", "us-west-2c"]
+
+# Custom VPC name
+# vpc_name = "lesson-5-vpc"
+
+# Custom ECR repository name
+# ecr_name = "lesson-5-ecr"
+
+# Enable/disable ECR image scanning
+# scan_on_push = true
