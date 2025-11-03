@@ -28,3 +28,18 @@ output "ecr_info" {
     repository_arn  = module.ecr.repository_arn
   }
 }
+
+output "eks_info" {
+  description = "Information about EKS cluster"
+  value = {
+    cluster_id                     = module.eks.cluster_id
+    cluster_arn                    = module.eks.cluster_arn
+    cluster_name                   = module.eks.cluster_name
+    cluster_endpoint               = module.eks.cluster_endpoint
+    cluster_version                = module.eks.cluster_version
+    cluster_security_group_id      = module.eks.cluster_security_group_id
+    node_security_group_id         = module.eks.node_security_group_id
+    oidc_provider_arn              = module.eks.oidc_provider_arn
+    kubectl_config_command         = module.eks.kubectl_config_command
+  }
+}

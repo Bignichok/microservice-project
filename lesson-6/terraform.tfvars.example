@@ -19,10 +19,10 @@ s3_bucket_name = "terraform-state-bucket-lesson5-YOUR-NAME"
 # availability_zones = ["us-west-2a", "us-west-2b", "us-west-2c"]
 
 # Custom VPC name
-# vpc_name = "lesson-5-vpc"
+# vpc_name = "lesson-6-vpc"
 
 # Custom ECR repository name
-# ecr_name = "lesson-5-ecr"
+# ecr_name = "lesson-6-ecr"
 
 # Enable/disable ECR image scanning
 # scan_on_push = true

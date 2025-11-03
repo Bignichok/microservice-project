@@ -1,35 +1,43 @@
-# Terraform Infrastructure Project - Lesson 5
+# Terraform Infrastructure Project - Lesson 6
 
-This project demonstrates creating AWS infrastructure using Terraform with a modular architecture. The project includes setting up S3 backend for state file storage, creating VPC with public and private subnets, and an ECR repository for Docker images.
+This project demonstrates creating a complete AWS infrastructure using Terraform with a modular architecture. The project includes setting up S3 backend for state file storage, creating VPC with public and private subnets, ECR repository for Docker images, and a fully functional EKS (Elastic Kubernetes Service) cluster with managed node groups.
 
 ## 📁 Project Structure
 
 ```
-lesson-5/
+lesson-6/
 │
 ├── main.tf                  # Main file for connecting modules
 ├── backend.tf               # Backend configuration for state (S3 + DynamoDB)
 ├── outputs.tf               # General resource outputs
-└── modules/                 # Directory with all modules
-|    │
-|    ├── s3-backend/          # Module for S3 and DynamoDB
-|    │   ├── s3.tf            # S3 bucket creation
-|    │   ├── dynamodb.tf      # DynamoDB creation
-|    │   ├── variables.tf     # Variables for S3
-|    │   └── outputs.tf       # S3 and DynamoDB information output
-|    │
-|    ├── vpc/                 # Module for VPC
-|    │   ├── vpc.tf           # VPC, subnets, Internet Gateway creation
-|    │   ├── routes.tf        # Routing configuration
-|    │   ├── variables.tf     # Variables for VPC
-|    │   └── outputs.tf       # VPC information output
-|    │
-|    └── ecr/                 # Module for ECR
-|        ├── ecr.tf           # ECR repository creation
-|        ├── variables.tf     # Variables for ECR
-|        └── outputs.tf       # ECR repository URL output
-|
-└── README.md                 # Project documentation
+├── terraform.tfvars         # Variable values configuration
+├── terraform.tfvars.example # Example variable configuration
+├── .gitignore              # Git ignore file
+├── README.md
+└── modules/                # Directory with all modules
+    │
+    ├── s3-backend/         # Module for S3 and DynamoDB
+    │   ├── s3.tf           # S3 bucket creation
+    │   ├── dynamodb.tf     # DynamoDB creation
+    │   ├── variables.tf    # Variables for S3
+    │   └── outputs.tf      # S3 and DynamoDB information output
+    │
+    ├── vpc/                # Module for VPC
+    │   ├── vpc.tf          # VPC, subnets, Internet Gateway creation
+    │   ├── routes.tf       # Routing configuration
+    │   ├── variables.tf    # Variables for VPC
+    │   └── outputs.tf      # VPC information output
+    │
+    ├── ecr/                # Module for ECR
+    │   ├── ecr.tf          # ECR repository creation
+    │   ├── variables.tf    # Variables for ECR
+    │   └── outputs.tf      # ECR repository URL output
+    │
+    └── eks/                # Module for EKS
+        ├── eks.tf          # EKS cluster and node groups
+        ├── addons.tf       # EKS managed add-ons
+        ├── variables.tf    # Variables for EKS
+        └── outputs.tf      # EKS cluster information output
 ```
 
 ## 🚀 Quick Start
@@ -43,12 +51,14 @@ lesson-5/
    - DynamoDB tables
    - VPC and network resources
    - ECR repositories
+   - EKS clusters and node groups
+   - IAM roles and policies
 
 ### Steps to Launch
 
 #### 1. Clone and navigate to directory
 ```bash
-cd lesson-5
+cd lesson-6
 ```
 
 #### 2. Initialize Terraform
@@ -124,6 +134,53 @@ terraform destroy
 - `repository_url` - repository URL
 - `repository_arn` - repository ARN
 
+### 4. EKS Module (`modules/eks/`)
+
+**Purpose**: Create a complete Amazon EKS (Elastic Kubernetes Service) cluster with managed node groups and essential add-ons.
+
+**Resources**:
+- **EKS Cluster** (Kubernetes v1.28)
+- **Managed Node Groups** with auto-scaling
+- **Security Groups** for cluster and worker nodes
+- **IAM Roles** with appropriate policies
+- **IRSA** (IAM Roles for Service Accounts) support
+- **EKS Add-ons**: VPC CNI, CoreDNS, Kube-proxy, EBS CSI Driver
+
+**Configuration**:
+- **Cluster Name**: `lesson-6-eks-cluster`
+- **Node Instance Type**: `t3.micro` (cost-optimized for learning)
+- **Node Group**: 1 desired, 1-2 scaling range
+- **Disk Size**: 10GB per node
+- **Subnets**: Worker nodes in private subnets for security
+
+**Features**:
+- ✅ **Security**: Private worker nodes with security groups
+- ✅ **Scalability**: Auto-scaling node groups (1-2 nodes)
+- ✅ **Cost-Optimized**: t3.micro instances for study purposes
+- ✅ **Add-ons**: Essential Kubernetes components pre-installed
+- ✅ **IRSA**: Secure pod-level AWS permissions
+- ✅ **Logging**: EKS control plane logging enabled
+
+**Outputs**:
+- `cluster_name` - EKS cluster name
+- `cluster_endpoint` - Kubernetes API endpoint
+- `cluster_arn` - EKS cluster ARN
+- `kubectl_config_command` - Command to configure kubectl access
+
+**Post-Deployment Steps**:
+```bash
+# Configure kubectl to access the cluster
+aws eks --region us-west-2 update-kubeconfig --name lesson-6-eks-cluster
+
+# Verify cluster access
+kubectl get nodes
+kubectl get pods --all-namespaces
+
+# Deploy a test application
+kubectl create deployment nginx --image=nginx:alpine
+kubectl expose deployment nginx --port=80 --type=LoadBalancer
+```
+
 ## ⚙️ Configuration
 
 ### Environment Variables
@@ -144,7 +201,7 @@ Backend configuration is located in `backend.tf`:
 terraform {
   backend "s3" {
     bucket         = "terraform-state-bucket-lesson5"
-    key            = "lesson-5/terraform.tfstate"
+    key            = "lesson-6/terraform.tfstate"
     region         = "us-west-2"
     dynamodb_table = "terraform-locks"
     encrypt        = true
@@ -170,10 +227,108 @@ variable "s3_bucket_name" {
 }
 ```
 
-## 🧹 Resource Cleanup
+## 🎯 EKS Learning Guide
 
-To delete all created resources:
+### Essential kubectl Commands
 
 ```bash
-terraform destroy
+# Cluster information
+kubectl cluster-info
+kubectl get nodes -o wide
+
+# Check system pods
+kubectl get pods -n kube-system
+
+# Monitor resource usage
+kubectl top nodes
+kubectl top pods -A
+
+# Deploy sample application
+kubectl create deployment hello-world --image=nginx:alpine
+kubectl scale deployment hello-world --replicas=2
+kubectl expose deployment hello-world --port=80 --type=LoadBalancer
+
+# Check deployments and services
+kubectl get deployments
+kubectl get services
+kubectl get pods
+
+# View logs
+kubectl logs -f deployment/hello-world
+
+# Clean up test resources
+kubectl delete deployment hello-world
+kubectl delete service hello-world
 ```
+
+### EKS-Specific Commands
+
+```bash
+# Check EKS add-ons status
+aws eks list-addons --cluster-name lesson-6-eks-cluster
+
+# View cluster details
+aws eks describe-cluster --name lesson-6-eks-cluster
+
+# Check node group status
+aws eks describe-nodegroup \
+  --cluster-name lesson-6-eks-cluster \
+  --nodegroup-name lesson-6-worker-nodes
+
+# View cluster logs
+aws logs describe-log-groups \
+  --log-group-name-prefix "/aws/eks/lesson-6-eks-cluster"
+```
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+1. **Nodes not ready**
+   ```bash
+   kubectl describe nodes
+   kubectl get events --sort-by='.lastTimestamp'
+   ```
+
+2. **Pod networking issues**
+   ```bash
+   kubectl get pods -n kube-system | grep aws-node
+   kubectl logs -n kube-system daemonset/aws-node
+   ```
+
+3. **DNS resolution problems**
+   ```bash
+   kubectl get pods -n kube-system | grep coredns
+   kubectl logs -n kube-system deployment/coredns
+   ```
+
+4. **Storage issues**
+   ```bash
+   kubectl get storageclass
+   kubectl get pv
+   kubectl describe pod <pod-name>
+   ```
+
+### Useful Debugging
+
+```bash
+# Check EKS add-on versions
+aws eks describe-addon-versions --addon-name vpc-cni
+aws eks describe-addon-versions --addon-name coredns
+aws eks describe-addon-versions --addon-name kube-proxy
+aws eks describe-addon-versions --addon-name aws-ebs-csi-driver
+
+# Verify IRSA (IAM Roles for Service Accounts)
+kubectl get sa -A
+kubectl describe sa aws-node -n kube-system
+```
+
+```bash
+# Destroy all infrastructure
+terraform destroy
+
+# Or selectively destroy EKS only (if needed)
+terraform destroy -target=module.eks
+```
+
+**Warning**: This will permanently delete all resources. Make sure you have backups of important data.
