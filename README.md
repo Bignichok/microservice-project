@@ -7,7 +7,6 @@ Create Kubernetes cluster with ECR repository and deploy Django application usin
 ## Project Structure
 
 ```
-lesson-7/
 ├── main.tf                    
 ├── backend.tf                 
 ├── outputs.tf                 
@@ -52,8 +51,8 @@ lesson-7/
 ### Option 1: Automated deployment
 
 ```bash
-chmod +x lesson-7/deploy.sh
-./lesson-7/deploy.sh all
+chmod +x deploy.sh
+./deploy.sh all
 ```
 
 ### Option 2: Step-by-step deployment
@@ -61,7 +60,6 @@ chmod +x lesson-7/deploy.sh
 #### Step 1: Deploy infrastructure
 
 ```bash
-cd lesson-7
 
 terraform init
 terraform plan
@@ -154,7 +152,6 @@ kubectl get hpa django-app --watch
 ```bash
 helm uninstall django-app
 
-cd lesson-7
 terraform destroy
 ```
 
@@ -164,14 +161,14 @@ terraform destroy
 
 ```bash
 aws ecr describe-repositories --region us-west-2
-aws ecr list-images --repository-name lesson-7-ecr --region us-west-2
+aws ecr list-images --repository-name microservice-project-ecr --region us-west-2
 ```
 
 ### EKS issues
 
 ```bash
-aws eks describe-cluster --name lesson-7-eks-cluster --region us-west-2
-aws eks describe-nodegroup --cluster-name lesson-7-eks-cluster --nodegroup-name lesson-7-worker-nodes --region us-west-2
+aws eks describe-cluster --name microservice-project-eks-cluster --region us-west-2
+aws eks describe-nodegroup --cluster-name microservice-project-eks-cluster --nodegroup-name microservice-project-worker-nodes --region us-west-2
 ```
 
 ### Helm issues

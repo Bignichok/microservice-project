@@ -1,0 +1,105 @@
+# Production values override example
+# Use: helm install django-app ./charts/django-app -f production-values.yaml
+
+# Image configuration
+image:
+  repository: "YOUR_ECR_REPO_URL"
+  tag: "v1.0.0"
+  pullPolicy: IfNotPresent
+
+# Service configuration
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 8000
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "https"
+
+# Deployment settings
+deployment:
+  replicaCount: 3
+  containerPort: 8000
+
+# Production ConfigMap
+configMap:
+  name: django-config
+  data:
+    DEBUG: "False"
+    ALLOWED_HOSTS: "your-domain.com,*.your-domain.com"
+    DATABASE_ENGINE: "django.db.backends.postgresql"
+    DATABASE_NAME: "django_prod_db"
+    DATABASE_USER: "django_user"
+    DATABASE_PASSWORD: "CHANGE_THIS_IN_PRODUCTION"  # Use Secrets in real production
+    DATABASE_HOST: "your-rds-endpoint.region.rds.amazonaws.com"
+    DATABASE_PORT: "5432"
+    REDIS_HOST: "your-redis-cluster.cache.amazonaws.com"
+    REDIS_PORT: "6379"
+    SECRET_KEY: "CHANGE_THIS_TO_RANDOM_SECRET_KEY"  # Use Secrets in real production
+
+# Production HPA settings
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 60
+  targetMemoryUtilizationPercentage: 70
+
+# Production resource limits
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Security contexts
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+
+podSecurityContext:
+  fsGroup: 2000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Node selector for production nodes
+nodeSelector:
+  node-type: production
+
+# Tolerations for dedicated nodes
+tolerations:
+- key: "production"
+  operator: "Equal"
+  value: "true"
+  effect: "NoSchedule"
+
+# Pod anti-affinity for high availability
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - django-app
+        topologyKey: kubernetes.io/hostname
+
+# Additional labels and annotations
+labels:
+  environment: production
+  team: backend
+  version: v1.0.0
+
+annotations:
+  contact: "backend-team@company.com"
+  documentation: "https://wiki.company.com/django-app"
