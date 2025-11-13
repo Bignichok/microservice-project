@@ -18,7 +18,7 @@ aws_region = "us-west-2"
 
 # Unique S3 bucket name for Terraform state
 # IMPORTANT: Replace with your unique name!
-s3_bucket_name = "terraform-state-bucket-lesson5-bignichok"
+s3_bucket_name = "terraform-state-bucket-microservice-project-bignichok"
 ```
 
 ### 3. Configure AWS CLI
@@ -40,7 +40,7 @@ If you want to use S3 backend for Terraform state, uncomment the block in `backe
 ```hcl
 terraform {
   backend "s3" {
-    bucket         = "terraform-state-bucket-lesson5-bignichok"
+    bucket         = "terraform-state-bucket-microservice-project-bignichok"
     key            = "microservice-project/terraform.tfstate"
     region         = "us-west-2"
     dynamodb_table = "terraform-locks"

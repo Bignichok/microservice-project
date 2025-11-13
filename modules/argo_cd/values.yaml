@@ -1,0 +1,112 @@
+global:
+  image:
+    tag: "v2.8.7"
+
+configs:
+  secret:
+    argocdServerAdminPassword: "${admin_password}"
+  
+  # ArgoCD configuration
+  cm:
+    url: "http://argocd-server.${namespace}.svc.cluster.local"
+    application.instanceLabelKey: "argocd.argoproj.io/instance"
+    
+    # Enable anonymous access for metrics
+    server.insecure: true
+    
+    # Git configuration
+    timeout.reconciliation: "60s"
+    
+  # RBAC configuration
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      p, role:admin, applications, *, */*, allow
+      p, role:admin, clusters, *, *, allow
+      p, role:admin, repositories, *, *, allow
+      g, argocd-admins, role:admin
+
+# Server configuration
+server:
+  replicas: 1
+  
+  service:
+    type: LoadBalancer
+    servicePortHttp: 80
+    servicePortHttps: 443
+    
+  ingress:
+    enabled: ${ingress_enabled}
+    hosts:
+      - "${ingress_host}"
+    tls:
+      - secretName: argocd-server-tls
+        hosts:
+          - "${ingress_host}"
+          
+  # Resource limits
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+
+# Repository server configuration
+repoServer:
+  replicas: 1
+  
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+
+# Application controller configuration
+controller:
+  replicas: 1
+  
+  resources:
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+
+# Redis configuration
+redis:
+  resources:
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
+# ApplicationSet controller
+applicationSet:
+  enabled: true
+  
+  resources:
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
+# Notifications controller
+notifications:
+  enabled: true
+  
+  resources:
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"

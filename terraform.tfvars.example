@@ -6,7 +6,7 @@ aws_region = "us-west-2"
 
 # Unique S3 bucket name for Terraform state
 # IMPORTANT: Replace with your unique name!
-s3_bucket_name = "terraform-state-bucket-lesson5-YOUR-NAME"
+s3_bucket_name = "terraform-state-bucket-microservice-project-YOUR-NAME"
 
 # Additional variables for customization (uncomment as needed)
 

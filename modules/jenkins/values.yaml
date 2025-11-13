@@ -1,0 +1,146 @@
+controller:
+  image: "jenkins/jenkins"
+  tag: "2.426.1-lts"
+  
+  # Service Account
+  serviceAccount:
+    create: false
+    name: ${service_account_name}
+  
+  # Admin user
+  admin:
+    username: admin
+    password: "${admin_password}"
+  
+  # Jenkins configuration as code
+  JCasC:
+    defaultConfig: true
+    configScripts:
+      welcome-message: |
+        jenkins:
+          systemMessage: "Welcome to Jenkins for microservice-project CI/CD"
+      security:
+        jenkins:
+          securityRealm:
+            local:
+              allowsSignup: false
+              users:
+                - id: admin
+                  password: "${admin_password}"
+          authorizationStrategy:
+            loggedInUsersCanDoAnything:
+              allowAnonymousRead: false
+      unclassified: |
+        unclassified:
+          location:
+            url: "http://jenkins.${namespace}.svc.cluster.local:8080"
+  
+  # Install plugins
+  installPlugins:
+    - kubernetes:4029.v5712230ccb_f8
+    - workflow-aggregator:596.v8c21c963d92d
+    - git:5.0.0
+    - configuration-as-code:1647.ve39ca_b_829b_42
+    - blueocean:1.26.0
+    - docker-workflow:563.vd5d2e5c4007f
+    - pipeline-stage-view:2.26
+    - build-timeout:1.29
+    - credentials-binding:631.v861fa_8c66fdf
+    - timestamper:1.25
+    - ws-cleanup:0.45
+    - ant:475.vf34069fef73c
+    - gradle:2.8.1
+    - workflow-support:865.v43e78cc44e0d
+    - pipeline-github-lib:42.v0739460cda_c4
+    - ssh-slaves:2.877.v365f5eb_a_b_eec
+    - matrix-auth:3.1.10
+    - pam-auth:1.10
+    - ldap:682.v7b_544c9d1512
+    - email-ext:2.96
+    - mailer:448.v5b_97805e3767
+  
+  # Resources
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "2"
+      memory: "2Gi"
+  
+  # Environment variables
+  containerEnv:
+    - name: AWS_DEFAULT_REGION
+      value: "${aws_region}"
+    - name: AWS_REGION
+      value: "${aws_region}"
+    - name: ECR_REPOSITORY_URL
+      value: "${ecr_repository_url}"
+
+# Persistent storage
+persistence:
+  enabled: true
+  storageClass: "${storage_class}"
+  size: "${storage_size}"
+
+# Agent configuration for Kaniko builds
+agent:
+  enabled: true
+  image: "jenkins/inbound-agent"
+  tag: "3107.v665000b_51092-15"
+  workingDir: "/home/jenkins/agent"
+  nodeUsageMode: "NORMAL"
+  customJenkinsLabels: []
+  imagePullSecretName: null
+  componentName: "jenkins-agent"
+  websocket: false
+  directConnection: false
+  
+  # Pod template for Kaniko builds
+  podTemplates:
+    kaniko: |
+      - name: "kaniko"
+        label: "kaniko"
+        serviceAccount: "${service_account_name}"
+        containers:
+        - name: "kaniko"
+          image: "gcr.io/kaniko-project/executor:latest"
+          imagePullPolicy: "Always"
+          command:
+          - "/busybox/cat"
+          tty: true
+          volumeMounts:
+          - name: jenkins-docker-cfg
+            mountPath: /kaniko/.docker
+        - name: "git"
+          image: "alpine/git:latest"
+          imagePullPolicy: "Always"
+          command:
+          - "/bin/sh"
+          - "-c"
+          - "cat"
+          tty: true
+        volumes:
+        - name: jenkins-docker-cfg
+          projected:
+            sources:
+            - secret:
+                name: docker-config
+                items:
+                - key: .dockerconfigjson
+                  path: config.json
+
+# Service configuration
+controller:
+  serviceType: LoadBalancer
+  servicePort: 80
+  targetPort: 8080
+
+# RBAC
+rbac:
+  create: true
+  readSecrets: true
+
+serviceAccount:
+  create: false
+  name: ${service_account_name}

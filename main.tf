@@ -15,7 +15,7 @@ provider "aws" {
 variable "s3_bucket_name" {
   description = "S3 bucket name for Terraform state"
   type        = string
-  default     = "terraform-state-bucket-lesson5-bignichok"
+  default     = "terraform-state-bucket-microservice-project-bignichok"
 }
 
 module "s3_backend" {
@@ -62,6 +62,58 @@ module "eks" {
     Project     = "microservice-project"
     ManagedBy   = "terraform"
   }
+}
+
+module "jenkins" {
+  source = "./modules/jenkins"
+  
+  cluster_name          = module.eks.cluster_name
+  namespace            = "jenkins"
+  jenkins_admin_password = "admin123!"
+  ecr_repository_url   = module.ecr.repository_url
+  aws_region           = var.aws_region
+  
+  tags = {
+    Environment = "microservice-project"
+    Project     = "microservice-project"
+    ManagedBy   = "terraform"
+  }
+  
+  depends_on = [module.eks]
+}
+
+module "argo_cd" {
+  source = "./modules/argo_cd"
+  
+  cluster_name = module.eks.cluster_name
+  namespace    = "argocd"
+  
+  repositories = [
+    {
+      name = "microservice-charts"
+      url  = "https://github.com/Bignichok/microservice-project.git"
+      type = "git"
+    }
+  ]
+  
+  applications = [
+    {
+      name           = "django-app"
+      namespace      = "argocd"
+      source_repo    = "https://github.com/Bignichok/microservice-project.git"
+      source_path    = "charts/django-app"
+      dest_server    = "https://kubernetes.default.svc"
+      dest_namespace = "default"
+    }
+  ]
+  
+  tags = {
+    Environment = "microservice-project"
+    Project     = "microservice-project"
+    ManagedBy   = "terraform"
+  }
+  
+  depends_on = [module.eks]
 }
 
 variable "aws_region" {

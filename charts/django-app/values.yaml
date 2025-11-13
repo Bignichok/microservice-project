@@ -3,7 +3,7 @@
 
 # Image settings
 image:
-  repository: ""  # Will be set from ECR URL
+  repository: ""  # Will be set from ECR URL by Jenkins pipeline
   pullPolicy: IfNotPresent
   tag: "latest"
 

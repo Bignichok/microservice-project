@@ -7,7 +7,7 @@
 #### "Error: bucket already exists"
 ```bash
 aws s3 ls
-s3_bucket_name = "terraform-state-bucket-lesson5-YOUR-UNIQUE-NAME"
+s3_bucket_name = "terraform-state-bucket-microservice-project-YOUR-UNIQUE-NAME"
 ```
 
 #### "Error: could not acquire state lock"

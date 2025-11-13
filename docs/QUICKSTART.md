@@ -1,4 +1,4 @@
-# 🚀 Quick Start - Lesson 7
+# 🚀 Quick Start - microservice-project
 
 Instructions for quick deployment of Django application in EKS.
 
