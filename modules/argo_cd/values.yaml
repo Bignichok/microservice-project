@@ -26,7 +26,6 @@ configs:
       p, role:admin, repositories, *, *, allow
       g, argocd-admins, role:admin
 
-# Server configuration
 server:
   replicas: 1
   
@@ -44,69 +43,42 @@ server:
         hosts:
           - "${ingress_host}"
           
-  # Resource limits
+
   resources:
     limits:
-      cpu: "500m"
-      memory: "1Gi"
-    requests:
-      cpu: "250m"
+      cpu: "200m"
       memory: "512Mi"
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
 
-# Repository server configuration
 repoServer:
   replicas: 1
   
   resources:
     limits:
-      cpu: "500m"
-      memory: "1Gi"
-    requests:
-      cpu: "250m"
+      cpu: "200m"
       memory: "512Mi"
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
 
-# Application controller configuration
 controller:
   replicas: 1
   
   resources:
     limits:
-      cpu: "1"
-      memory: "2Gi"
-    requests:
-      cpu: "500m"
+      cpu: "300m"
       memory: "1Gi"
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
 
-# Redis configuration
 redis:
   resources:
     limits:
       cpu: "200m"
       memory: "256Mi"
-    requests:
-      cpu: "100m"
-      memory: "128Mi"
-
-# ApplicationSet controller
-applicationSet:
-  enabled: true
-  
-  resources:
-    limits:
-      cpu: "100m"
-      memory: "128Mi"
-    requests:
-      cpu: "100m"
-      memory: "128Mi"
-
-# Notifications controller
-notifications:
-  enabled: true
-  
-  resources:
-    limits:
-      cpu: "100m"
-      memory: "128Mi"
     requests:
       cpu: "100m"
       memory: "128Mi"

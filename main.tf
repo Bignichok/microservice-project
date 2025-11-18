@@ -49,10 +49,10 @@ module "eks" {
   private_subnet_ids  = module.vpc.private_subnet_ids
   
   node_group_name     = "microservice-project-worker-nodes"
-  node_instance_types = ["t3.medium"]
-  node_desired_size   = 2
-  node_max_size       = 4
-  node_min_size       = 1
+  node_instance_types = ["t3.small"]
+  node_desired_size   = 4
+  node_max_size       = 12
+  node_min_size       = 2
   node_disk_size      = 20
   
   enable_irsa = true
@@ -64,57 +64,56 @@ module "eks" {
   }
 }
 
-module "jenkins" {
-  source = "./modules/jenkins"
-  
-  cluster_name          = module.eks.cluster_name
-  namespace            = "jenkins"
-  jenkins_admin_password = "admin123!"
-  ecr_repository_url   = module.ecr.repository_url
-  aws_region           = var.aws_region
-  
-  tags = {
-    Environment = "microservice-project"
-    Project     = "microservice-project"
-    ManagedBy   = "terraform"
-  }
-  
-  depends_on = [module.eks]
-}
+# Jenkins and Argo CD modules will be deployed in a second step
+# after the EKS cluster is created to avoid circular dependencies
 
-module "argo_cd" {
-  source = "./modules/argo_cd"
-  
-  cluster_name = module.eks.cluster_name
-  namespace    = "argocd"
-  
-  repositories = [
-    {
-      name = "microservice-charts"
-      url  = "https://github.com/Bignichok/microservice-project.git"
-      type = "git"
-    }
-  ]
-  
-  applications = [
-    {
-      name           = "django-app"
-      namespace      = "argocd"
-      source_repo    = "https://github.com/Bignichok/microservice-project.git"
-      source_path    = "charts/django-app"
-      dest_server    = "https://kubernetes.default.svc"
-      dest_namespace = "default"
-    }
-  ]
-  
-  tags = {
-    Environment = "microservice-project"
-    Project     = "microservice-project"
-    ManagedBy   = "terraform"
-  }
-  
-  depends_on = [module.eks]
-}
+# module "jenkins" {
+#   source = "./modules/jenkins"
+#   
+#   cluster_name          = module.eks.cluster_name
+#   namespace            = "jenkins"
+#   jenkins_admin_password = "admin123!"
+#   ecr_repository_url   = module.ecr.repository_url
+#   aws_region           = var.aws_region
+#   
+#   tags = {
+#     Environment = "microservice-project"
+#     Project     = "microservice-project"
+#     ManagedBy   = "terraform"
+#   }
+# }
+
+# module "argo_cd" {
+#   source = "./modules/argo_cd"
+#   
+#   cluster_name = module.eks.cluster_name
+#   namespace    = "argocd"
+#   
+#   repositories = [
+#     {
+#       name = "microservice-charts"
+#       url  = "https://github.com/Bignichok/microservice-project.git"
+#       type = "git"
+#     }
+#   ]
+#   
+#   applications = [
+#     {
+#       name           = "django-app"
+#       namespace      = "argocd"
+#       source_repo    = "https://github.com/Bignichok/microservice-project.git"
+#       source_path    = "charts/django-app"
+#       dest_server    = "https://kubernetes.default.svc"
+#       dest_namespace = "default"
+#     }
+#   ]
+#   
+#   tags = {
+#     Environment = "microservice-project"
+#     Project     = "microservice-project"
+#     ManagedBy   = "terraform"
+#   }
+# }
 
 variable "aws_region" {
   description = "AWS region"

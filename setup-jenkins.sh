@@ -98,5 +98,4 @@ main() {
     create_github_secret
 }
 
-# Run main function
 main "$@"

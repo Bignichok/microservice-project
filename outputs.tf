@@ -43,23 +43,3 @@ output "eks_info" {
     kubectl_config_command         = module.eks.kubectl_config_command
   }
 }
-
-output "jenkins_info" {
-  description = "Information about Jenkins installation"
-  value = {
-    jenkins_url             = module.jenkins.jenkins_url
-    jenkins_namespace       = module.jenkins.jenkins_namespace
-    jenkins_service_account = module.jenkins.jenkins_service_account
-  }
-  sensitive = false
-}
-
-output "argocd_info" {
-  description = "Information about ArgoCD installation"
-  value = {
-    argocd_url                 = module.argo_cd.argocd_url
-    argocd_namespace           = module.argo_cd.argocd_namespace
-    argocd_server_service_name = module.argo_cd.argocd_server_service_name
-  }
-  sensitive = false
-}

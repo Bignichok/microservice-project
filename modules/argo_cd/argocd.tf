@@ -14,6 +14,7 @@ resource "helm_release" "argocd" {
   chart      = "argo-cd"
   version    = var.argocd_chart_version
   namespace  = kubernetes_namespace.argocd.metadata[0].name
+  timeout    = 600
 
   values = [templatefile("${path.module}/values.yaml", {
     namespace         = var.namespace

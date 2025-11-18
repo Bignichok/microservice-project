@@ -17,6 +17,12 @@ resource "kubernetes_service_account" "jenkins" {
   }
 }
 
+# Get current AWS account ID
+data "aws_caller_identity" "current" {}
+
+# Get current AWS region
+data "aws_region" "current" {}
+
 resource "aws_iam_role" "jenkins" {
   name = "${var.cluster_name}-jenkins-role"
 
@@ -42,7 +48,10 @@ resource "aws_iam_role" "jenkins" {
   tags = var.tags
 }
 
-data "aws_caller_identity" "current" {}
+# Get EKS cluster info
+data "aws_eks_cluster" "cluster" {
+  name = var.cluster_name
+}
 
 resource "aws_iam_role_policy" "jenkins_ecr" {
   name = "${var.cluster_name}-jenkins-ecr-policy"
@@ -75,7 +84,10 @@ resource "helm_release" "jenkins" {
   chart      = "jenkins"
   version    = var.jenkins_chart_version
   namespace  = kubernetes_namespace.jenkins.metadata[0].name
-
+  timeout    = 600
+  wait       = true
+  wait_for_jobs = true
+  
   values = [templatefile("${path.module}/values.yaml", {
     namespace            = var.namespace
     service_account_name = kubernetes_service_account.jenkins.metadata[0].name
