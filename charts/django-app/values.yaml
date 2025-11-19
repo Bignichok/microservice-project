@@ -1,0 +1,76 @@
+# Default values for django-app.
+# This is a YAML-formatted file.
+
+# Image settings
+image:
+  repository: ""  # Will be set from ECR URL by Jenkins pipeline
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+# Service settings
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 8000
+
+# Deployment settings
+deployment:
+  replicaCount: 2
+  containerPort: 8000
+
+# ConfigMap settings
+configMap:
+  name: django-config
+  data:
+    DEBUG: "False"
+    ALLOWED_HOSTS: "*"
+    DATABASE_ENGINE: "django.db.backends.postgresql"
+    DATABASE_NAME: "django_db"
+    DATABASE_USER: "django_user"
+    DATABASE_PASSWORD: "django_password"
+    DATABASE_HOST: "postgres-service"
+    DATABASE_PORT: "5432"
+    REDIS_HOST: "redis-service"
+    REDIS_PORT: "6379"
+    SECRET_KEY: "your-secret-key-change-in-production"
+
+# HPA (Horizontal Pod Autoscaler) settings
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+  # targetMemoryUtilizationPercentage: 80
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Security context
+securityContext: {}
+
+# Pod security context
+podSecurityContext: {}
+
+# Labels and annotations
+labels: {}
+annotations: {}
+
+# Environment from ConfigMap
+envFrom:
+  - configMapRef:
+      name: django-config

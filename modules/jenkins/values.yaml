@@ -1,0 +1,48 @@
+controller:
+  image: "jenkins/jenkins"
+  tag: "2.426.1-lts"
+  
+  # Service Account
+  serviceAccount:
+    create: false
+    name: ${service_account_name}
+  
+  # Admin user
+  admin:
+    username: admin
+    password: "${admin_password}"
+  
+  installPlugins: []
+
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+  
+  javaOpts: "-Xms256m -Xmx768m"
+  
+  # Environment variables
+  containerEnv:
+    - name: AWS_DEFAULT_REGION
+      value: "${aws_region}"
+    - name: AWS_REGION
+      value: "${aws_region}"
+    - name: ECR_REPOSITORY_URL
+      value: "${ecr_repository_url}"
+      
+  # Service configuration  
+  serviceType: LoadBalancer
+  servicePort: 80
+  targetPort: 8080
+      
+# RBAC
+rbac:
+  create: true
+  readSecrets: true
+
+serviceAccount:
+  create: false
+  name: ${service_account_name}
