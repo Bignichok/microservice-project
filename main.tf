@@ -64,6 +64,45 @@ module "eks" {
   }
 }
 
+# RDS Database Module (Regular PostgreSQL - Free Tier Compatible)
+module "database" {
+  source = "./modules/rds"
+  
+  # Required variables
+  project_name = "microservice-project"
+  environment  = "dev"
+  master_password = var.db_password
+  
+  # Network configuration
+  vpc_id              = module.vpc.vpc_id
+  subnet_ids          = module.vpc.private_subnet_ids
+  allowed_security_groups = [module.eks.node_security_group_id]
+  
+  # Regular RDS PostgreSQL configuration - Free Tier Compatible
+  use_aurora   = false
+  engine       = "postgres"
+  engine_version = "18.1" 
+  instance_class = "db.t3.micro"
+  parameter_group_family = "postgres18"
+  
+  # Database settings
+  database_name   = "django_app"
+  master_username = "dbadmin"
+  
+  # Free Tier Compatible Settings
+  allocated_storage       = 20    # Free tier limit (20GB)
+  backup_retention_period = 0     # No backups for free tier
+  multi_az               = false  # Single-AZ for free tier
+  storage_encrypted       = false # Encryption not free on t3.micro
+  deletion_protection     = false # For development environment
+  
+  tags = {
+    Environment = "dev"
+    Project     = "microservice-project"
+    ManagedBy   = "terraform"
+  }
+}
+
 # Jenkins and Argo CD modules will be deployed in a second step
 # after the EKS cluster is created to avoid circular dependencies
 
@@ -119,6 +158,12 @@ variable "aws_region" {
   description = "AWS region"
   type        = string
   default     = "us-west-2"
+}
+
+variable "db_password" {
+  description = "Master password for the database"
+  type        = string
+  sensitive   = true
 }
 
 

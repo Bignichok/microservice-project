@@ -22,6 +22,12 @@ Complete CI/CD pipeline for Django microservice using **Jenkins**, **Argo CD**, 
 │   ├── vpc/                   # Network infrastructure
 │   ├── ecr/                   # Docker image registry
 │   ├── eks/                   # Kubernetes cluster
+│   ├── rds/                   # Universal RDS module (Aurora/RDS)
+│   │   ├── rds.tf             # Regular RDS instance creation
+│   │   ├── aurora.tf          # Aurora cluster creation
+│   │   ├── shared.tf          # Shared resources (subnet group, security group)
+│   │   ├── variables.tf       # Module variables
+│   │   └── outputs.tf         # Module outputs
 │   ├── jenkins/               # Jenkins CI server with Helm
 │   └── argo_cd/               # Argo CD deployment controller
 ├── charts/
@@ -37,7 +43,6 @@ Complete CI/CD pipeline for Django microservice using **Jenkins**, **Argo CD**, 
 │            └── hpa.yaml
 └── docs/
     ├── CI_CD_GUIDE.md         # Detailed CI/CD documentation
-    ├── DEPLOYMENT_CHECKLIST.md # Step-by-step deployment guide
     ├── QUICKSTART.md          # Quick start guide
     ├── SETUP.md               # Detailed setup instructions
     └── TROUBLESHOOTING.md     # Common issues and solutions
@@ -51,6 +56,12 @@ Complete CI/CD pipeline for Django microservice using **Jenkins**, **Argo CD**, 
 - **VPC**: Virtual Private Cloud with public and private subnets
 - **ECR**: Elastic Container Registry for Docker image storage
 - **EKS**: Elastic Kubernetes Service cluster with IRSA support
+- **RDS**: Universal database module supporting both Aurora Cluster and regular RDS instances
+  - `shared.tf`: Common resources (Subnet Group, Security Group)
+  - `aurora.tf`: Aurora Cluster and instances
+  - `rds.tf`: Regular RDS instances
+  - Automatic parameter group creation based on database type
+  - Support for PostgreSQL, MySQL engines with flexible configuration
 
 ### 2. CI/CD Components
 
@@ -108,9 +119,98 @@ Complete CI/CD pipeline for Django microservice using **Jenkins**, **Argo CD**, 
    - Deploys new application version to EKS cluster
    - Monitors application health
 
+## RDS Database Module
+
+The universal RDS module supports both Aurora Cluster and regular RDS instances:
+
+### Aurora PostgreSQL Example
+
+```hcl
+module "database" {
+  source = "./modules/rds"
+  
+  use_aurora   = true
+  project_name = "myapp"
+  environment  = "production"
+  
+  vpc_id                  = module.vpc.vpc_id
+  subnet_ids              = module.vpc.private_subnets
+  allowed_security_groups = [module.eks.node_security_group_id]
+  
+  engine                 = "aurora-postgresql"
+  engine_version         = "14.9"
+  instance_class         = "db.r6g.large"
+  parameter_group_family = "aurora-postgresql14"
+  
+  database_name   = "django_db"
+  master_username = "dbadmin"
+  master_password = var.db_password
+  
+  reader_count            = 2
+  backup_retention_period = 14
+  storage_encrypted       = true
+  deletion_protection     = true
+}
+```
+
+### Regular MySQL RDS Example
+
+```hcl
+module "database" {
+  source = "./modules/rds"
+  
+  use_aurora   = false
+  project_name = "myapp"
+  environment  = "staging"
+  
+  vpc_id              = module.vpc.vpc_id
+  allowed_cidr_blocks = ["10.0.0.0/16"]
+  
+  engine         = "mysql"
+  engine_version = "8.0.35"
+  instance_class = "db.t3.small"
+  
+  allocated_storage = 100
+  multi_az         = true
+  master_password  = var.mysql_password
+}
+```
+## Deployment Options
+
+### Option 1: Complete Infrastructure + CI/CD
+
+```bash
+# Deploy complete infrastructure and CI/CD in two phases
+chmod +x deploy-ci-cd.sh
+./deploy-ci-cd.sh
+```
+
+### Option 2: CI/CD Only (Infrastructure Already Exists)
+
+```bash
+# Deploy only Jenkins and Argo CD components
+./deploy-ci-cd.sh --cicd-only
+```
+
+### Option 3: Infrastructure Only
+
+```bash
+# Deploy only infrastructure components (VPC, EKS, ECR)
+terraform init
+terraform plan
+terraform apply
+```
+
+### Option 4: Complete Cleanup
+
+```bash
+# Destroy all infrastructure and CI/CD components
+./deploy-ci-cd.sh --destroy
+```
+
 ## Deployment Steps
 
-### Option 1: Full CI/CD Infrastructure Deployment
+### Automated Deployment (Recommended)
 
 ```bash
 # Deploy complete CI/CD infrastructure
@@ -118,14 +218,14 @@ chmod +x deploy-ci-cd.sh
 ./deploy-ci-cd.sh
 ```
 
-This will deploy:
+**What this deploys:**
 - EKS cluster with all networking components
 - ECR repository for Docker images
 - Jenkins CI server with Kaniko support
 - Argo CD deployment controller
 - Automated configuration and setup
 
-### Option 2: Manual Step-by-step Deployment
+### Manual Step-by-Step Deployment
 
 #### Step 1: Deploy infrastructure
 
@@ -332,6 +432,71 @@ terraform destroy
 
 ## Troubleshooting
 
+### AWS Free Tier Compatibility
+
+```bash
+# Error: FreeTierRestrictionError - backup retention period exceeds free tier limit
+# Solution: Use free tier compatible settings
+
+# For Aurora PostgreSQL (Free Tier)
+module "database" {
+  source = "./modules/rds"
+  
+  use_aurora   = true
+  engine       = "aurora-postgresql"
+  engine_version = "13.13"  # Stable version
+  instance_class = "db.t3.medium"  # Minimum for Aurora
+  
+  backup_retention_period = 1   # Max 1 day for free tier
+  reader_count           = 0    # No readers for free tier
+  deletion_protection    = false # For development
+  
+  # Other required settings...
+}
+
+# For Regular RDS (Free Tier Alternative)
+module "database" {
+  source = "./modules/rds"
+  
+  use_aurora   = false
+  engine       = "postgres"
+  engine_version = "14.9"
+  instance_class = "db.t3.micro"   # Free tier eligible
+  
+  allocated_storage       = 20    # Free tier limit
+  backup_retention_period = 0     # No backups for free tier
+  multi_az               = false  # Single-AZ for free tier
+  
+  # Other required settings...
+}
+```
+
+### Script Execution Issues (WSL/Linux)
+
+```bash
+# Fix "cannot execute: required file not found" error
+# This happens when scripts have Windows line endings (CRLF)
+
+# Solution 1: Convert line endings (if dos2unix is available)
+dos2unix deploy-ci-cd.sh
+chmod +x deploy-ci-cd.sh
+./deploy-ci-cd.sh
+
+# Solution 2: Convert using sed (if dos2unix not available)
+sed -i 's/\r$//' deploy-ci-cd.sh
+chmod +x deploy-ci-cd.sh
+./deploy-ci-cd.sh
+
+# Solution 3: Convert using tr
+tr -d '\r' < deploy-ci-cd.sh > deploy-ci-cd-fixed.sh
+mv deploy-ci-cd-fixed.sh deploy-ci-cd.sh
+chmod +x deploy-ci-cd.sh
+./deploy-ci-cd.sh
+
+# Solution 4: Run with bash directly
+bash deploy-ci-cd.sh
+```
+
 ### CI/CD Issues
 
 ```bash
@@ -389,7 +554,7 @@ The system provides:
 - **Build artifact management** in ECR with automatic cleanup
 - **Monitoring and alerting** through Kubernetes events
 
-### Update application
+### Update Application
 
 ```bash
 # Push new code to trigger automatic CI/CD
@@ -442,10 +607,10 @@ kubectl port-forward svc/argocd-server 8081:80 -n argocd
 ## Documentation
 
 - **[docs/CI_CD_GUIDE.md](docs/CI_CD_GUIDE.md)**: Comprehensive CI/CD setup and usage guide
-- **[docs/DEPLOYMENT_CHECKLIST.md](docs/DEPLOYMENT_CHECKLIST.md)**: Step-by-step deployment verification checklist
 - **[docs/QUICKSTART.md](docs/QUICKSTART.md)**: Quick start guide for immediate deployment
 - **[docs/SETUP.md](docs/SETUP.md)**: Detailed setup and configuration instructions
 - **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**: Common issues and their solutions
+- **[DEPLOYMENT.md](DEPLOYMENT.md)**: Two-phase deployment guide with prerequisites and verification steps
 
 ## Prerequisites
 
@@ -456,11 +621,25 @@ kubectl port-forward svc/argocd-server 8081:80 -n argocd
 - Docker (for local testing)
 - Git configured with access tokens
 
-## Support
+## Support & Troubleshooting
 
-For issues and troubleshooting:
-1. **Quick Start**: Check [docs/QUICKSTART.md](docs/QUICKSTART.md) for immediate deployment
-2. **Setup Issues**: Review [docs/SETUP.md](docs/SETUP.md) for detailed configuration
-3. **Common Problems**: Check [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for solutions
-4. **System Status**: Run `./check-status.sh` for system status overview
-5. **Logs**: Review component logs using kubectl commands provided above
+For issues and troubleshooting, follow this order:
+
+1. **🚀 Quick Start**: Check [docs/QUICKSTART.md](docs/QUICKSTART.md) for immediate deployment
+2. **📋 Deployment Guide**: Review [DEPLOYMENT.md](DEPLOYMENT.md) for step-by-step instructions
+3. **⚙️ Setup Issues**: Check [docs/SETUP.md](docs/SETUP.md) for detailed configuration
+4. **🔧 Common Problems**: See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for solutions
+5. **📊 System Status**: Run `./check-status.sh` for system overview
+6. **📋 Logs**: Review component logs using kubectl commands in the troubleshooting section above
+
+### Quick Health Check
+
+```bash
+# Check overall system status
+./check-status.sh
+
+# Check specific components
+kubectl get pods -A
+kubectl get services -A
+helm list -A
+```

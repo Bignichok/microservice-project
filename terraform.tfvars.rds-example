@@ -1,0 +1,10 @@
+# Example RDS configuration
+# Copy this to terraform.tfvars and customize
+
+aws_region = "us-west-2"
+
+# Database password (required)
+db_password = "your-secure-password-here"
+
+# Optional: S3 bucket name (if different)
+s3_bucket_name = "terraform-state-bucket-microservice-project-bignichok"
