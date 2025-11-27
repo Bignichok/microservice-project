@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Comprehensive CI/CD Infrastructure Deployment Script
-# This script deploys the complete infrastructure including EKS, Jenkins, and Argo CD
+# This script deploys the complete infrastructure including EKS, Jenkins, Argo CD, and optional monitoring
 
 set -e
 
@@ -9,6 +9,10 @@ set -e
 AWS_REGION="${AWS_REGION:-us-west-2}"
 CLUSTER_NAME="microservice-project-eks-cluster"
 TERRAFORM_STATE_BUCKET="terraform-state-bucket-microservice-project-bignichok"
+MONITORING_NAMESPACE="monitoring"
+DEPLOY_MONITORING=false
+MONITORING_NAMESPACE="monitoring"
+DEPLOY_MONITORING=false
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -191,8 +195,35 @@ setup_jenkins() {
     else
         print_warning "setup-jenkins.sh script not found, skipping automated Jenkins setup"
     fi
-    
+
     print_success "Jenkins setup completed!"
+}
+
+deploy_monitoring() {
+    print_status "Deploying monitoring stack (Prometheus + Grafana)..."
+    
+    # Check if monitoring script exists
+    if [ ! -f "./deploy-monitoring.sh" ]; then
+        print_warning "deploy-monitoring.sh not found, skipping monitoring deployment"
+        return 0
+    fi
+    
+    # Make monitoring script executable
+    chmod +x ./deploy-monitoring.sh
+    
+    # Deploy monitoring stack
+    if ./deploy-monitoring.sh --namespace="$MONITORING_NAMESPACE"; then
+        print_success "Monitoring stack deployed successfully!"
+        
+        # Wait for monitoring to be ready
+        print_status "Waiting for monitoring components to be ready..."
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=prometheus,app.kubernetes.io/component=server -n "$MONITORING_NAMESPACE" --timeout=300s || true
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=grafana -n "$MONITORING_NAMESPACE" --timeout=300s || true
+        
+        print_success "Monitoring stack is ready!"
+    else
+        print_warning "Failed to deploy monitoring stack, continuing..."
+    fi
 }
 
 verify_argocd() {
@@ -203,6 +234,11 @@ verify_argocd() {
     
     print_status "Waiting for ArgoCD server to be ready..."
     kubectl wait --for=condition=Available deployment/argocd-server -n argocd --timeout=600s
+    
+    if [ "$DEPLOY_MONITORING" = true ]; then
+        print_status "Verifying monitoring deployment..."
+        kubectl get pods -n "$MONITORING_NAMESPACE" || print_warning "Monitoring pods not found"
+    fi
     
     print_success "Argo CD is ready!"
 }
@@ -238,6 +274,17 @@ display_access_info() {
     echo "Repository URL: $ECR_URL"
     echo ""
     
+    if [ "$DEPLOY_MONITORING" = true ]; then
+        echo "📊 MONITORING STACK"
+        echo "----------------------------------------------------------------------------------------"
+        echo "Prometheus: kubectl port-forward svc/prometheus-server 9090:80 -n $MONITORING_NAMESPACE"
+        echo "Prometheus URL: http://localhost:9090"
+        echo "Grafana: kubectl port-forward svc/grafana 3000:80 -n $MONITORING_NAMESPACE"
+        echo "Grafana URL: http://localhost:3000 (admin/admin123)"
+        echo "Data Source: http://prometheus-server.monitoring.svc:80"
+        echo ""
+    fi
+    
     echo "☸️  EKS CLUSTER"
     echo "----------------------------------------------------------------------------------------"
     echo "Cluster Name: $CLUSTER_NAME"
@@ -253,6 +300,14 @@ display_access_info() {
     echo "3. 🏗️  Create a Pipeline job in Jenkins pointing to your repository"
     echo "4. 🔄 Push code to trigger the CI/CD pipeline"
     echo "5. 👀 Monitor deployments in Argo CD UI"
+    if [ "$DEPLOY_MONITORING" = true ]; then
+        echo "6. 📊 Access Grafana and import recommended dashboards:"
+        echo "   - Kubernetes Cluster Overview (ID: 7249)"
+        echo "   - Node Exporter Full (ID: 1860)"
+        echo "   - Kubernetes Pod Monitoring (ID: 6417)"
+    else
+        echo "6. 📊 Optionally deploy monitoring: ./deploy-monitoring.sh"
+    fi
     echo ""
     echo "For troubleshooting, check the CI_CD_GUIDE.md file."
     echo ""
@@ -261,17 +316,36 @@ display_access_info() {
 show_help() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
-    echo "Deploy complete CI/CD infrastructure with Jenkins, Argo CD, and EKS"
+    echo "This script deploys a complete CI/CD infrastructure with Jenkins, Argo CD, and optional monitoring."
     echo ""
     echo "Options:"
-    echo "  -h, --help       Show this help message"
-    echo "  -d, --destroy    Destroy the infrastructure"
-    echo "  -s, --skip-k8s   Skip Kubernetes setup (Jenkins and Argo CD)"
-    echo "  --cicd-only      Deploy only CI/CD components (requires existing infrastructure)"
+    echo "  --cicd-only           Deploy only CI/CD components (requires existing infrastructure)"
+    echo "  --with-monitoring     Deploy monitoring stack (Prometheus + Grafana) along with CI/CD"
+    echo "  --monitoring-only     Deploy only monitoring stack (requires existing cluster)"
+    echo "  --skip-k8s           Skip Kubernetes configuration and setup"
+    echo "  --destroy            Destroy all infrastructure (DANGEROUS!)"
+    echo "  -h, --help           Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0                           # Deploy complete infrastructure + CI/CD"
+    echo "  $0 --cicd-only               # Deploy only Jenkins and Argo CD"
+    echo "  $0 --with-monitoring         # Deploy everything including monitoring"
+    echo "  $0 --monitoring-only         # Deploy only Prometheus and Grafana"
+    echo "  $0 --destroy                 # Destroy all resources"
+    echo ""
+    echo "Components deployed:"
+    echo "  - Infrastructure: VPC, EKS cluster, ECR repository, RDS database"
+    echo "  - CI/CD: Jenkins (with Kaniko), Argo CD"
+    echo "  - Monitoring: Prometheus, Grafana (optional)"
+    echo ""
+    echo "Prerequisites:"
+    echo "  - Terraform >= 1.0"
+    echo "  - AWS CLI configured"
+    echo "  - kubectl >= 1.24"
+    echo "  - Helm >= 3.0"
     echo ""
     echo "Environment Variables:"
     echo "  AWS_REGION       AWS region (default: us-west-2)"
-    echo ""
 }
 
 destroy_infrastructure() {
@@ -291,6 +365,7 @@ main() {
     local skip_k8s=false
     local destroy=false
     local cicd_only=false
+    local monitoring_only=false
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -298,16 +373,25 @@ main() {
                 show_help
                 exit 0
                 ;;
-            -d|--destroy)
+            -d|--destroy|--destroy)
                 destroy=true
                 shift
                 ;;
-            -s|--skip-k8s)
+            -s|--skip-k8s|--skip-k8s)
                 skip_k8s=true
                 shift
                 ;;
             --cicd-only)
                 cicd_only=true
+                shift
+                ;;
+            --with-monitoring)
+                DEPLOY_MONITORING=true
+                shift
+                ;;
+            --monitoring-only)
+                monitoring_only=true
+                DEPLOY_MONITORING=true
                 shift
                 ;;
             *)
@@ -323,9 +407,25 @@ main() {
     
     if [[ "$destroy" == true ]]; then
         echo -e "\n🔥 ${RED}WARNING: This will destroy all infrastructure and CI/CD components!${NC}"
-        read -p "Are you sure you want to proceed? (yes/N): " confirm
+        print_warning "This will destroy ALL infrastructure including:"
+        echo "  - EKS cluster and all workloads"
+        echo "  - VPC and networking"
+        echo "  - ECR repository and images"
+        echo "  - RDS database and data"
+        echo "  - S3 state bucket"
+        echo "  - All monitoring components"
+        echo ""
+        read -p "Are you absolutely sure? (type 'yes' to confirm): " confirm
         if [[ $confirm == "yes" ]]; then
             print_status "Destroying CI/CD components first..."
+            
+            # Clean up monitoring first if it exists
+            if kubectl get namespace "$MONITORING_NAMESPACE" &> /dev/null; then
+                print_status "Cleaning up monitoring stack..."
+                helm uninstall prometheus -n "$MONITORING_NAMESPACE" 2>/dev/null || true
+                helm uninstall grafana -n "$MONITORING_NAMESPACE" 2>/dev/null || true
+                kubectl delete namespace "$MONITORING_NAMESPACE" --ignore-not-found=true
+            fi
             
             # Try to get real values for destruction, use dummy if not available
             if terraform output eks_info > /dev/null 2>&1; then
@@ -360,16 +460,34 @@ EOF
     
     check_prerequisites
     
+    # Handle monitoring-only deployment
+    if [[ "$monitoring_only" == true ]]; then
+        print_status "Deploying monitoring stack only..."
+        configure_kubectl
+        deploy_monitoring
+        display_access_info
+        exit 0
+    fi
+    
     if [[ "$cicd_only" == true ]]; then
         echo -e "\nDeploying CI/CD components only..."
         echo -e "  - Jenkins"
         echo -e "  - Argo CD"
+        if [ "$DEPLOY_MONITORING" = true ]; then
+            echo -e "  - Monitoring (Prometheus + Grafana)"
+        fi
         echo
         
         print_status "Deploying CI/CD components..."
         deploy_cicd
     else
         echo -e "\nThis will deploy in two phases:"
+        echo -e "  1. Infrastructure (EKS, VPC, ECR, RDS)"
+        echo -e "  2. CI/CD Components (Jenkins, Argo CD)"
+        if [ "$DEPLOY_MONITORING" = true ]; then
+            echo -e "  3. Monitoring Stack (Prometheus, Grafana)"
+        fi
+        echo
         echo -e "  1. Infrastructure (EKS, VPC, ECR)"
         echo -e "  2. CI/CD Components (Jenkins, Argo CD)"
         echo
@@ -388,6 +506,12 @@ EOF
         configure_kubectl
         setup_jenkins
         verify_argocd
+        
+        # Deploy monitoring if requested
+        if [ "$DEPLOY_MONITORING" = true ]; then
+            print_status "Phase 3: Deploying monitoring stack..."
+            deploy_monitoring
+        fi
     fi
     
     display_access_info

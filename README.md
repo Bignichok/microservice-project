@@ -12,6 +12,7 @@ Complete CI/CD pipeline for Django microservice using **Jenkins**, **Argo CD**, 
 ├── outputs.tf                 # Infrastructure outputs including CI/CD info
 ├── terraform.tfvars.example   # Example variables file
 ├── deploy-ci-cd.sh            # Automated CI/CD infrastructure deployment
+├── deploy-monitoring.sh       # Automated monitoring stack deployment (Prometheus + Grafana)
 ├── setup-jenkins.sh           # Jenkins post-deployment configuration
 ├── check-status.sh            # Quick status check for all components
 ├── Jenkinsfile                # CI pipeline configuration
@@ -74,7 +75,18 @@ Complete CI/CD pipeline for Django microservice using **Jenkins**, **Argo CD**, 
   - Self-healing and auto-pruning capabilities
   - Web UI for deployment monitoring
 
-### 3. Application Components
+### 3. Monitoring Components
+
+- **Prometheus**: Metrics collection and storage
+  - Time-series database for monitoring data
+  - Service discovery and metric scraping
+  - Alerting rules and notification system
+- **Grafana**: Visualization and dashboards
+  - Interactive dashboards and charts
+  - Data source integration with Prometheus
+  - User management and access control
+
+### 4. Application Components
 
 - **Django Application**: Containerized Python web application
 - **Helm Chart**: Kubernetes manifests with ConfigMaps, Deployments, Services, HPA
@@ -201,7 +213,19 @@ terraform plan
 terraform apply
 ```
 
-### Option 4: Complete Cleanup
+### Option 4: Deploy Monitoring Stack
+
+```bash
+# Deploy Prometheus and Grafana monitoring
+chmod +x deploy-monitoring.sh
+./deploy-monitoring.sh
+
+# Access Grafana dashboard
+kubectl port-forward -n monitoring svc/grafana 3000:80
+# URL: http://localhost:3000 (admin/admin123)
+```
+
+### Option 5: Complete Cleanup
 
 ```bash
 # Destroy all infrastructure and CI/CD components
@@ -271,7 +295,21 @@ chmod +x check-status.sh
 3. Verify Django application is automatically created
 4. Configure auto-sync policies if needed
 
-#### Step 6: Verify deployment
+#### Step 6: Deploy Monitoring (Optional)
+
+```bash
+# Deploy Prometheus and Grafana
+chmod +x deploy-monitoring.sh
+./deploy-monitoring.sh
+
+# Check monitoring deployment
+kubectl get pods -n monitoring
+
+# Access Grafana
+kubectl port-forward -n monitoring svc/grafana 3000:80
+```
+
+#### Step 7: Verify deployment
 
 ```bash
 # Check infrastructure status
@@ -306,6 +344,12 @@ After deployment, you'll receive access information for:
 ### Django Application
 - **URL**: Available after first successful deployment
 - **Access**: Via Kubernetes LoadBalancer service
+
+### Monitoring Stack (Optional)
+- **Prometheus URL**: http://localhost:9090 (via port-forward)
+- **Grafana URL**: http://localhost:3000 (via port-forward)
+- **Grafana Login**: admin / admin123
+- **Purpose**: Infrastructure and application monitoring
 
 ## CI/CD Pipeline Configuration
 
@@ -426,11 +470,37 @@ helm uninstall jenkins -n jenkins
 # Remove Argo CD  
 helm uninstall argocd -n argocd
 
+# Remove Monitoring Stack (if installed)
+helm uninstall prometheus -n monitoring
+helm uninstall grafana -n monitoring
+kubectl delete namespace monitoring
+
 # Then destroy infrastructure
 terraform destroy
 ```
 
 ## Troubleshooting
+
+### Monitoring Issues
+
+```bash
+# Check monitoring stack status
+kubectl get pods -n monitoring
+kubectl get svc -n monitoring
+
+# Check Prometheus logs
+kubectl logs -n monitoring deployment/prometheus-server
+
+# Check Grafana logs
+kubectl logs -n monitoring deployment/grafana
+
+# Restart monitoring services
+kubectl rollout restart deployment/prometheus-server -n monitoring
+kubectl rollout restart deployment/grafana -n monitoring
+
+# Access Grafana admin
+kubectl get secret -n monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode
+```
 
 ### AWS Free Tier Compatibility
 
@@ -607,6 +677,7 @@ kubectl port-forward svc/argocd-server 8081:80 -n argocd
 ## Documentation
 
 - **[docs/CI_CD_GUIDE.md](docs/CI_CD_GUIDE.md)**: Comprehensive CI/CD setup and usage guide
+- **[docs/MONITORING.md](docs/MONITORING.md)**: Monitoring setup with Prometheus and Grafana
 - **[docs/QUICKSTART.md](docs/QUICKSTART.md)**: Quick start guide for immediate deployment
 - **[docs/SETUP.md](docs/SETUP.md)**: Detailed setup and configuration instructions
 - **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**: Common issues and their solutions
